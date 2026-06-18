@@ -12,10 +12,15 @@ export class PersonasService {
   ) {}
   public getAll(): Promise<Persona[]> {
     return this.repository.find();
-    }
   }
   public createPersona(dto: CreatePersonaDto): Promise<Persona> {
-    const persona = this.repository.create(dto);
+    const persona = this.repository.create({
+      nombre: dto.nombre,
+      apellidos: dto.apellidos,
+      edad: dto.edad,
+      ciudad: dto.ciudad,
+      fechaNacimiento: new Date(dto.fechaNacimiento),
+    });
     return this.repository.save(persona);
   }
 }
