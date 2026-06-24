@@ -1,110 +1,74 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# API de cartelera y reservas de cine
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+Backend NestJS + TypeORM/MySQL para administrar películas, salas, funciones y reservas de asientos.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Puesta en marcha
 
-## Description
+1. Copiar `.env.example` a `.env` y completar la conexión MySQL y `JWT_SECRET`.
+2. Instalar dependencias con `yarn install`.
+3. Iniciar con `yarn start:dev`.
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+El backend no crea administradores al arrancar. El administrador debe existir previamente en la tabla `user` con el valor `admin` en la columna `role`. Los usuarios registrados desde la API siempre tienen el rol `cliente`.
 
-## Project setup
+## MySQL con Docker
+
+El contenedor usado para el proyecto puede iniciarse con:
 
 ```bash
-$ yarn install
+docker run --name mysql-container -e MYSQL_ROOT_PASSWORD=asfafsdfs123! -v mysql-data:/var/lib/mysql -p 3306:3306 -d mysql:latest
 ```
 
-## Compile and run the project
+La configuración incluida en `.env.example` utiliza `localhost`, el puerto `3306`, el usuario `root` y esa contraseña. La base de datos `cine` debe existir dentro del contenedor antes de iniciar NestJS. Si el volumen aún no la contiene, puede crearse con:
 
 ```bash
-# development
-$ yarn run start
-
-# watch mode
-$ yarn run start:dev
-
-# production mode
-$ yarn run start:prod
+docker exec mysql-container mysql -uroot -pasfafsdfs123! -e "CREATE DATABASE IF NOT EXISTS cine;"
 ```
 
-## Run tests
+## Endpoints
 
-```bash
-# unit tests
-$ yarn run test
+### Autenticación
 
-# e2e tests
-$ yarn run test:e2e
+- `POST /auth/register`: registro de cliente.
+- `POST /auth/login`: devuelve el token JWT.
+- `POST /auth/logout`: cierre de sesión del cliente (debe descartarse el token).
+- `GET /auth/me`: perfil del usuario autenticado.
 
-# test coverage
-$ yarn run test:cov
+### Cartelera pública
+
+- `GET /peliculas`: lista la cartelera. Acepta `?buscar=texto&genero=genero`.
+- `GET /peliculas/:id`: detalle, sala y próximas funciones.
+- `GET /peliculas/:id/poster`: archivo del poster.
+- `GET /funciones`: lista funciones; acepta `?peliculaId=1`.
+- `GET /funciones/:id`: detalle de una función.
+
+### Administración
+
+Requieren `Authorization: Bearer <token>` de un administrador.
+
+- `POST /peliculas`, `PATCH /peliculas/:id`, `DELETE /peliculas/:id`. El alta/edición usa `multipart/form-data`; el archivo se envía en `imagen`.
+- `GET /salas`, `GET /salas/:id`, `POST /salas`, `PATCH /salas/:id`, `DELETE /salas/:id`.
+- `POST /funciones`, `PATCH /funciones/:id`, `DELETE /funciones/:id`.
+
+El sistema bloquea funciones superpuestas en una misma sala usando la fecha/hora y la duración de cada película.
+
+### Reservas
+
+Requieren un usuario autenticado.
+
+- `GET /funciones/:id/asientos`: mapa gráfico consumible por el frontend (`disponible`/`ocupado`).
+- `POST /reservas`: confirma uno o varios asientos.
+- `GET /reservas/mias`: historial del usuario.
+
+Ejemplo de reserva:
+
+```json
+{
+  "funcionId": 1,
+  "asientos": [
+    { "fila": 1, "columna": 2 },
+    { "fila": 1, "columna": 3 }
+  ]
+}
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
-
-```bash
-$ yarn install -g @nestjs/mau
-$ mau deploy
-```
-
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
-
-## Resources
-
-Check out a few resources that may come in handy when working with NestJS:
-
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
-
-## Support
-
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
-
-## Stay in touch
-
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
-
-## License
-
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
-
-## Docker MySQL config
-
-Para levantar MySQL con Docker:
-
-```bash
-docker run --name mysql-container \
-  -e MYSQL_ROOT_PASSWORD=tu_password \
-  -e MYSQL_DATABASE=nest_db \
-  -p 3306:3306 \
-  -v mysql-data:/var/lib/mysql \
-  -d mysql:latest
+La confirmación se realiza en una transacción y existe una restricción única por función/fila/columna, por lo que un asiento no puede venderse dos veces aun con solicitudes concurrentes.
